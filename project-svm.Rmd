@@ -1,0 +1,186 @@
+---
+title: "Project-SVM"
+author: "Jessie Browne"
+date: "5/1/2022"
+output:
+  word_document: default
+  html_document: default
+email: "jlbrowne@iu.edu"
+bibliography: [references.bib]
+csl: apa-6th-edition.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r import, message = FALSE, warning = FALSE}
+library(e1071)
+library(TeachingDemos)
+
+train <- as.data.frame(read.csv("DA_final/train_data.csv"))
+test <- as.data.frame(read.csv("DA_final/test_data.csv"))
+
+set.seed(46202)
+subSamp1 <- sample(dim(train)[1], 1000)
+subTune <- train[subSamp1,]
+subSamp2 <- sample(dim(train)[1], 10000)
+subTrain <- train[subSamp2,]
+subSamp3 <- sample(dim(test)[1], 1000)
+subTest <- test[subSamp3,]
+```
+```{r tuning, warning = FALSE, message = FALSE}
+char2seed("Group 2")
+tuneLinear <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "linear",
+                   ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+tuneRadial <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "radial",
+                   ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+tunePoly2 <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "polynomial", degree = 2, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+tunePoly3 <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "polynomial", degree = 3, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+tunePoly4 <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "polynomial", degree = 4, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+tunePoly5 <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "polynomial", degree = 5, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+tunePoly6 <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "polynomial", degree = 6, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+tuneSigmoid <- tune(svm, HeartDisease ~ ., data = subTune, kernel = "sigmoid",
+                   ranges = list(cost = c(0.001, 0.01, 0.1, 1, 5)))
+
+costLinear <- summary(tuneLinear)[[1]]$cost
+costRadial <- summary(tuneRadial)[[1]]$cost
+costPoly2 <- summary(tunePoly2)[[1]]$cost
+costPoly3 <- summary(tunePoly3)[[1]]$cost
+costPoly4 <- summary(tunePoly4)[[1]]$cost
+costPoly5 <- summary(tunePoly5)[[1]]$cost
+costPoly6 <- summary(tunePoly6)[[1]]$cost
+costSigmoid <- summary(tuneSigmoid)[[1]]$cost
+```
+```{r fit subsampled models}
+SVM_linear <- svm(HeartDisease ~ ., data = subTrain, kernel = "linear", cost = costLinear, scale = FALSE)
+SVM_radial <- svm(HeartDisease ~ ., data = subTrain, kernel = "radial", cost = costRadial, scale = FALSE)
+SVM_poly2 <- svm(HeartDisease ~ ., data = subTrain, kernel = "polynomial", degree = 2, cost = costPoly2, scale = FALSE)
+SVM_poly3 <- svm(HeartDisease ~ ., data = subTrain, kernel = "polynomial", degree = 3, cost = costPoly3, scale = FALSE)
+SVM_sigmoid <- svm(HeartDisease ~ ., data = subTrain, kernel = "sigmoid", cost = costSigmoid, scale = FALSE)
+```
+```{r predict subsampled models}
+pred_linear <- predict(SVM_linear, newdata = subTest)
+pred_radial <- predict(SVM_radial, newdata = subTest)
+pred_poly2 <- predict(SVM_poly2, newdata = subTest)
+pred_poly3 <- predict(SVM_poly3, newdata = subTest)
+pred_sigmoid <- predict(SVM_sigmoid, newdata = subTest)
+```
+``` {r eval subsampled models}
+acc_linear <- mean(ifelse(pred_linear > 0.5, 1, 0) == subTest$HeartDisease)
+acc_radial <- mean(ifelse(pred_radial > 0.5, 1, 0) == subTest$HeartDisease)
+acc_poly2 <- mean(ifelse(pred_poly2 > 0.5, 1, 0) == subTest$HeartDisease)
+acc_poly3 <- mean(ifelse(pred_poly3 > 0.5, 1, 0) == subTest$HeartDisease)
+acc_sigmoid <- mean(ifelse(pred_sigmoid > 0.5, 1, 0) == subTest$HeartDisease)
+
+conf_linear <- table(pred = ifelse(pred_linear > 0.5, 1, 0), observed = subTest$HeartDisease)
+conf_radial <- table(pred = ifelse(pred_radial > 0.5, 1, 0), observed = subTest$HeartDisease)
+conf_poly2 <- table(pred = ifelse(pred_poly2 > 0.5, 1, 0), observed = subTest$HeartDisease)
+conf_poly3 <- table(pred = ifelse(pred_poly3 > 0.5, 1, 0), observed = subTest$HeartDisease)
+conf_sigmoid <- table(pred = ifelse(pred_sigmoid > 0.5, 1, 0), observed = subTest$HeartDisease)
+
+sens_linear <- conf_linear[2,2]/(conf_linear[2,2] + conf_linear[1,2])
+prec_linear <- conf_linear[2,2]/(conf_linear[2,2] + conf_linear[2,1])
+
+sens_radial <- conf_radial[2,2]/(conf_radial[2,2] + conf_radial[1,2])
+prec_radial <- conf_radial[2,2]/(conf_radial[2,2] + conf_radial[2,1])
+
+sens_poly2 <- conf_poly2[2,2]/(conf_poly2[2,2] + conf_poly2[1,2])
+prec_poly2 <- conf_poly2[2,2]/(conf_poly2[2,2] + conf_poly2[2,1])
+
+sens_poly3 <- conf_poly3[2,2]/(conf_poly3[2,2] + conf_poly3[1,2])
+prec_poly3 <- conf_poly3[2,2]/(conf_poly3[2,2] + conf_poly3[2,1])
+
+sens_sigmoid <- conf_sigmoid[2,2]/(conf_sigmoid[2,2] + conf_sigmoid[1,2])
+spec_sigmoid <- conf_sigmoid[1,1]/(conf_sigmoid[1,1] + conf_sigmoid[2,1])
+prec_sigmoid <- conf_sigmoid[2,2]/(conf_sigmoid[2,2] + conf_sigmoid[2,1])
+
+```
+```{r SVM ensemble}
+
+res_list <- list()
+modAcc <- c()
+size <- 1:dim(train)[1]
+count = 1
+n = 15000
+while (length(size) > n){
+  set <- sample(size, n)
+  size <- size[-c(set)]
+  data <- train[set,]
+  model <- svm(HeartDisease ~ ., data = data, kernel = "linear", 
+               cost = costLinear, scale = FALSE)
+  pred <- predict(model, newdata = subTest)
+  res_list[[count]] <- pred
+  acc <- mean(ifelse(pred > 0.5, 1, 0) == subTest$HeartDisease)
+  modAcc <- c(modAcc, acc)
+  count = count +1
+if (length(size) <= n){ 
+  break
+}
+}
+
+wt_res_list <- list()
+for (i in 1:length(res_list)){
+  wt_res_list[[i]] <- res_list[[i]]*modAcc[i]
+}
+wt_res_df <- do.call(cbind, wt_res_list)
+consensus <- rowSums(wt_res_df)/sum(modAcc)
+
+final_pred <- ifelse(consensus > 0.5, 1, 0)
+final_acc <- mean(final_pred == subTest$HeartDisease)
+conf_final <- table(pred = final_pred, 
+                    observed = subTest$HeartDisease)
+
+sens_final <- conf_final[2,2]/(conf_final[2,2] + conf_final[1,2])
+prec_final <- conf_final[2,2]/(conf_final[2,2] + conf_final[2,1])
+```
+
+### Introduction
+
+Cardiovascular disease (CVD) is a progressive disorder that moves from the presence of known risk factors to progressive disease that causes organ damage, organ failure, and death [@epidemiology]. The National Center for Health Statistics summarized data collected from 1999 - 2010 in a brief issued in August 2012, and they looked at population stratification for the three known risk factors: uncontrolled high blood pressure, uncontrolled high LDL cholesterol, and current cigarette smoking [@NCHS]. The reported that about 47% of American adults had at least one of these three risk factors for CVD. 
+
+The CDC stresses that it is important to reduce the risk factors that are in the patient's control, such as eating a high fat diet, not getting enough physical exercise, smoking, and drinking alcohol [-@CDC]. Physical health and environmental effects are not the only covariates to consider - mental health has been shown to affect a patients risk for cardiovascular disease. According to @heartDisease, depressive symptoms are an independent predictor of heart disease in elderly patients. @epidemiology goes on to indicate too much or too little sleep as a risk factor.
+
+Many of these risk factors are included in the 2020 CDC dataset published on Kaggle [@kaggle]. The dataset, *Personal Key Indicators of Heart Disease*, 18 variables (9 booleans, 5 strings, and 4 decimals), and the first of these indicates a self-reported diagnosis of heart disease. The other columns are BMI, Smoking, AlcoholDrinking, Stroke, PhysicalHealth, MentalHealth, DiffWalking, Sex, and AgeCategory. This dataset is further described in the methodology section, where exploratory data analysis and cleaning are detailed. 
+
+**Support Vector Machine.** The support vector machine (SVM) is a powerful model for classification. It is an extension of the support vector classifier, which uses a maximal margin classifier to separate classes using a linear boundary [@ISLR]. The  primary concepts comprising the SVM are a separating hyperplane, a soft margin, and a kernel function. For this project, the analyst focused on kernel selection. The kernel function projects data from a two-dimensional space to a higher dimension [@kernel]. $$K(x_1,x_2) = {\Phi(x_1) \cdot \Phi(x_2)}$$
+The kernels explored in this project were linear, radial, quadratic, third-degree polynomial, and sigmoid. 
+
+One major drawback of of the SVM is low interpretability. Since it is a highly flexible model, it's function is complex, which makes the relationship between variables and the output difficult to understand [@ISLR]. The SVM is also limited to problems with two classes, and it is computationally expensive. 
+
+### Methodology
+
+The data cleaning and encoding was performed in Python, and the notebook is available on [Google Colab](https://colab.research.google.com/drive/1f8ngBshIZioCrreWg047Sy9zse9Rdvam?usp=sharing).   
+
+**SVM**. The support vector machine (SVM) models were built using RStudio and `r R.version.string` by @R-base and the R package e1071 by @e1071. The first step was to sub-sample the very large data set, which had n = `r dim(train)[1]`, in order to explore kernels and cost parameters. The training data set was randomly sampled with n = `r dim(subTune)[1]` for parameter tuning and n = `r dim(subTrain)[1]` for training sub-models to explore five different kernels (linear, radial, quadratic, third-degree polynomial, and sigmoid). The test data set was also sub-sampled with n = `r dim(subTest)[1]` for these exploratory models.  
+
+Parameter tuning was performed with the tune() function, which uses 10-fold cross-validation. The column 'HeartDisease' was the response variable, and all 17 predictor variables were used in the formulas for each of five models. To evaluate the SVM models, the subsampled test data was used to make predictions, and predictions > 0.5 were classified as 'HeartDisease == 1'. The accuracy score is the fraction of correct classifications with this criteria. Confusion matrices were populated for all five sub-models (not shown), and sensitivity (recall or TPR) and precision were calculated from these matrices. 
+
+Since the complexity of the SVM model is exponential, it wasn't possible to fit the entire training data set, with `r dim(train)[1]` observations, so an ensemble of SVM models with linear kernels and constant cost parameter (`r costLinear`) were created and their predictions averaged. The ensemble was composed of `r length(res_list)` models trained on `r n` observations each. The member predictions were weighted by accuracy and summed to calculate a final result vector on `r dim(test)[1]` test observations. 
+
+### Results
+
+**SVM.** The following table summarizes the results for the sub-sampled models.
+
+| Kernel | Cost | Accuracy | Sensitivity | Precision |
+|--------|------|----------|-------------|-------------|
+| Linear | `r costLinear` | `r acc_linear` | `r sens_linear` | `r prec_linear` |
+| Radial | `r costRadial` | `r acc_radial` | `r sens_radial` | `r prec_radial` |
+| Polynomial, degree = 2 | `r costPoly2` | `r acc_poly2` | `r sens_poly2` | `r prec_poly2` |
+| Polynomial, degree = 3 | `r costPoly3` | `r acc_poly3` | `r sens_poly3` | `r prec_poly3` |
+| Sigmoid |  `r costSigmoid` | `r acc_sigmoid` | `r sens_sigmoid` | `r prec_sigmoid` |
+
+The accuracy achieved by the SVM ensemble was `r final_acc`, with precision = `r prec_final` and recall = `r sens_final`. The accuracy of the models in the ensemble ranged from `r min(modAcc)` to `r max(modAcc)`. 
+
+### Discussion
+
+**SVM.** The SVM model achieved achieved accuracy ranging from `r acc_sigmoid` for the sigmoid kernel exploratory model to `r acc_poly2` for the quadratic kernel. The sigmoid model's low accuracy was due to a bias in prediction toward a negative response for heart disease, which is illustrated by a low TPR (`r sens_sigmoid`) and high TNR (`r spec_sigmoid`). All other models had similar accuracy results, so in selecting which kernel was best, it was important to consider context. Assuming these predictions would most likely be used for heart disease intervention and prevention, the TPR or sensitivity is the most important factor.
+
+Since the SVM model is too complex to fit `r dim(train)[1]` observations, an ensemble of `r length(res_list)` SVM models with linear kernels and cost parameter `r costLinear` were trained on random samples sized `r n` from the full training dataset. $$K(x,x_j) = x \cdot x^T$$ The final model accuracy was `r final_acc`, which wasn't better than the simpler models, LDA and decision tree. Options to improve this analysis would be to use a high-powerered computer processor to fit a larger dataset to the SVM model, reduce the number of covariates, or apply stochastic gradient descent (SGD). 
+
+The complexity of SVM is exponential, and it's unfeasible to fit the model to very large datasets. Menon found that SVM can be extended using stochastic gradient descent (SGD), which takes advantage of the gradient of a function as an indication of the direction of greatest increase. The SGD, which is a gradient calculated iteratively using a sample of the training set, can be applied to the hinge-loss of the SVM to reduce the computational burden [@SGD].
+
+### References
+
+
+
+
